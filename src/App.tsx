@@ -11,7 +11,7 @@ import AgentWizard from './pages/AgentWizard';
 import Calls from './pages/Calls';
 import KnowledgeBase from './pages/KnowledgeBase';
 import MCPs from './pages/MCPs';
-import UploadSpecification from './pages/UploadSpecification';
+
 import Settings from './pages/Settings';
 
 const queryClient = new QueryClient({
@@ -69,7 +69,7 @@ function App() {
                     <Route path="/calls" element={<Calls />} />
                     <Route path="/knowledge-base" element={<KnowledgeBase />} />
                     <Route path="/mcps" element={<MCPs />} />
-                    <Route path="/upload-specification" element={<UploadSpecification />} />
+
                     <Route path="/settings" element={<Settings />} />
                   </Routes>
                 </Layout>

@@ -1,21 +1,44 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mcpApi } from '../lib/api';
 
+export interface MCPEndpoint {
+  method: string;
+  path: string;
+  operationId: string;
+  summary?: string;
+  parameters?: any[];
+}
+
 export interface MCPServer {
   id: string;
+  user_id: string;
   name: string;
   description: string;
-  version: string;
+  version?: string;
   status: 'active' | 'draft' | 'error' | 'archived';
-  lastUpdated: string;
-  url: string;
-  endpoints?: number;
-  uptime?: string;
-  responseTime?: string;
+  hosting_status?: 'inactive' | 'generating' | 'starting' | 'running' | 'error' | 'stopped' | 'paused';
+  host_port?: number;
+  host_url?: string;
+  process_id?: number;
+  server_directory?: string;
+  generated_at?: string;
+  hosted_at?: string;
+  last_health_check?: string;
+  error_message?: string;
+  base_url: string;
+  auth_config?: any;
+  endpoints?: MCPEndpoint[];
   tools?: MCPTool[];
   templates?: MCPTemplate[];
   prompts?: MCPPrompt[];
   created_at: string;
+  updated_at: string;
+  
+  // Legacy/computed fields for backwards compatibility
+  lastUpdated?: string;
+  url?: string;
+  uptime?: string;
+  responseTime?: string;
 }
 
 export interface MCPTool {
@@ -49,9 +72,13 @@ export interface MCPPrompt {
 export interface CreateMCPServerData {
   name: string;
   description: string;
-  url: string;
-  authType?: string;
-  apiKey?: string;
+  base_url: string;
+  version?: string;
+  auth_config?: {
+    type: string;
+    credentials: any;
+    headers: any;
+  };
 }
 
 export function useMCPs() {
@@ -84,7 +111,20 @@ export function useUploadMCPSpec() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (file: File) => mcpApi.uploadSpecFile(file),
+    mutationFn: ({ file, additionalData }: { file: File; additionalData?: any }) => 
+      mcpApi.uploadSpecFile(file, additionalData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcps'] });
+    },
+  });
+}
+
+export function useUploadMCPSpecFromUrl() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (data: { url: string; name?: string; description?: string; base_url?: string }) => 
+      mcpApi.uploadSpecFromUrl(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcps'] });
     },
@@ -99,6 +139,87 @@ export function useCreateMCPServer() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcps'] });
     },
+  });
+}
+
+// Hosting management hooks
+export interface MCPHostingStatus {
+  database: {
+    hosting_status: string;
+    host_port?: number;
+    host_url?: string;
+    process_id?: number;
+    server_directory?: string;
+    generated_at?: string;
+    hosted_at?: string;
+    last_health_check?: string;
+    error_message?: string;
+  };
+  runtime: {
+    port: number;
+    processId: number;
+    isRunning: boolean;
+    startedAt: string;
+    lastHealthCheck: string;
+  } | null;
+}
+
+export function useStartMCPHosting() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (mcpId: string) => mcpApi.startHosting(mcpId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcps'] });
+      queryClient.invalidateQueries({ queryKey: ['mcp-hosting'] });
+    },
+  });
+}
+
+export function useStopMCPHosting() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (mcpId: string) => mcpApi.stopHosting(mcpId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcps'] });
+      queryClient.invalidateQueries({ queryKey: ['mcp-hosting'] });
+    },
+  });
+}
+
+export function useRestartMCPHosting() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (mcpId: string) => mcpApi.restartHosting(mcpId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcps'] });
+      queryClient.invalidateQueries({ queryKey: ['mcp-hosting'] });
+    },
+  });
+}
+
+export function useMCPHostingStatus(mcpId: string) {
+  return useQuery<MCPHostingStatus>({
+    queryKey: ['mcp-hosting', mcpId],
+    queryFn: async () => {
+      const response = await mcpApi.getHostingStatus(mcpId);
+      return response.data as MCPHostingStatus;
+    },
+    enabled: !!mcpId,
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+}
+
+export function useAllMCPHostingStatus() {
+  return useQuery({
+    queryKey: ['mcp-hosting', 'all'],
+    queryFn: async () => {
+      const response = await mcpApi.getAllHostingStatus();
+      return response.data;
+    },
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 }
 
@@ -135,6 +256,42 @@ export function useAddMCPPrompt() {
       mcpApi.addPrompt(mcpId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcps'] });
+    },
+  });
+}
+
+export function useDeleteMCPServer() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (mcpId: string) => mcpApi.delete(mcpId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcps'] });
+      queryClient.invalidateQueries({ queryKey: ['mcp-hosting'] });
+    },
+  });
+}
+
+export function usePauseMCPHosting() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (mcpId: string) => mcpApi.pauseHosting(mcpId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcps'] });
+      queryClient.invalidateQueries({ queryKey: ['mcp-hosting'] });
+    },
+  });
+}
+
+export function useUnpauseMCPHosting() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (mcpId: string) => mcpApi.unpauseHosting(mcpId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcps'] });
+      queryClient.invalidateQueries({ queryKey: ['mcp-hosting'] });
     },
   });
 } 

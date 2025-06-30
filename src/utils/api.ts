@@ -89,6 +89,43 @@ class ApiClient {
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
+
+  async upload<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    const config: RequestInit = {
+      method: 'POST',
+      body: formData,
+    };
+
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw {
+          message: errorData.message || `HTTP ${response.status}`,
+          status: response.status,
+          details: errorData.details
+        } as ApiError;
+      }
+
+      const data = await response.json();
+      return {
+        data,
+        status: response.status,
+        message: 'Success',
+      };
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw {
+          message: 'Unable to connect to server. Please ensure the backend is running.',
+          status: 0,
+        } as ApiError;
+      }
+      throw error;
+    }
+  }
 }
 
 export const apiClient = new ApiClient();
@@ -122,10 +159,27 @@ export const kbApi = {
 export const mcpApi = {
   list: () => apiClient.get('/mcps'),
   get: (id: string) => apiClient.get(`/mcps/${id}`),
+  create: (data: any) => apiClient.post('/mcps', data),
+  update: (id: string, data: any) => apiClient.put(`/mcps/${id}`, data),
+  delete: (id: string) => apiClient.delete(`/mcps/${id}`),
   uploadSpec: (data: any) => apiClient.post('/mcps/spec', data),
+  uploadSpecFile: (file: File, additionalData?: any) => {
+    const formData = new FormData();
+    formData.append('spec', file);  // Fixed: changed from 'specFile' to 'spec'
+    if (additionalData?.name) formData.append('name', additionalData.name);
+    if (additionalData?.description) formData.append('description', additionalData.description);
+    if (additionalData?.base_url) formData.append('base_url', additionalData.base_url);
+    return apiClient.upload('/mcps/spec', formData);
+  },
+  uploadSpecFromUrl: (data: { url: string; name?: string; description?: string; base_url?: string }) => 
+    apiClient.post('/mcps/spec', data),
   getTools: (id: string) => apiClient.get(`/mcps/${id}/tools`),
-  updateTool: (id: string, toolId: string, data: any) => 
-    apiClient.patch(`/mcps/${id}/tools/${toolId}`, data),
+  updateTool: (id: string, toolName: string, data: any) => 
+    apiClient.patch(`/mcps/${id}/tools/${toolName}`, data),
+  getTemplates: (id: string) => apiClient.get(`/mcps/${id}/templates`),
+  addTemplate: (id: string, data: any) => apiClient.post(`/mcps/${id}/templates`, data),
+  getPrompts: (id: string) => apiClient.get(`/mcps/${id}/prompts`),
+  addPrompt: (id: string, data: any) => apiClient.post(`/mcps/${id}/prompts`, data),
 };
 
 // Calls API methods

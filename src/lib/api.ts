@@ -200,16 +200,32 @@ export const mcpApi = {
   update: (id: string, data: any) => apiClient.put(`/mcps/${id}`, data),
   delete: (id: string) => apiClient.delete(`/mcps/${id}`),
   uploadSpec: (data: any) => apiClient.post('/mcps/spec', data),
-  uploadSpecFile: (file: File) => {
+  uploadSpecFile: (file: File, additionalData?: any) => {
     const formData = new FormData();
-    formData.append('specFile', file);
+    formData.append('spec', file);  // Fixed: changed from 'specFile' to 'spec'
+    if (additionalData?.name) formData.append('name', additionalData.name);
+    if (additionalData?.description) formData.append('description', additionalData.description);
+    if (additionalData?.base_url) formData.append('base_url', additionalData.base_url);
     return apiClient.upload('/mcps/spec', formData);
   },
+  uploadSpecFromUrl: (data: { url: string; name?: string; description?: string; base_url?: string }) => 
+    apiClient.post('/mcps/spec', data),
   getTools: (id: string) => apiClient.get(`/mcps/${id}/tools`),
-  updateTool: (id: string, toolId: string, data: any) => 
-    apiClient.patch(`/mcps/${id}/tools/${toolId}`, data),
+  updateTool: (id: string, toolName: string, data: any) => 
+    apiClient.patch(`/mcps/${id}/tools/${toolName}`, data),
+  getTemplates: (id: string) => apiClient.get(`/mcps/${id}/templates`),
   addTemplate: (id: string, data: any) => apiClient.post(`/mcps/${id}/templates`, data),
+  getPrompts: (id: string) => apiClient.get(`/mcps/${id}/prompts`),
   addPrompt: (id: string, data: any) => apiClient.post(`/mcps/${id}/prompts`, data),
+  
+  // Hosting management methods
+  startHosting: (id: string) => apiClient.post(`/mcps/${id}/hosting/start`),
+  stopHosting: (id: string) => apiClient.post(`/mcps/${id}/hosting/stop`),
+  restartHosting: (id: string) => apiClient.post(`/mcps/${id}/hosting/restart`),
+  pauseHosting: (id: string) => apiClient.post(`/mcps/${id}/hosting/pause`),
+  unpauseHosting: (id: string) => apiClient.post(`/mcps/${id}/hosting/unpause`),
+  getHostingStatus: (id: string) => apiClient.get(`/mcps/${id}/hosting/status`),
+  getAllHostingStatus: () => apiClient.get('/mcps/hosting/status'),
 };
 
 // Metrics API methods

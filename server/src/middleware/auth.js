@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabase.js';
+import { createClient } from '@supabase/supabase-js';
 
 export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -16,6 +17,24 @@ export const authenticateToken = async (req, res, next) => {
     if (error || !user) {
       return res.status(401).json({ message: 'Invalid or expired token' });
     }
+
+    // Create user-scoped Supabase client using the JWT token
+    // This ensures RLS policies work correctly with auth.uid()
+    const userSupabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY, // Use anon key, not service key
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        },
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
 
     // Try to get user profile (but don't fail if it doesn't exist)
     const { data: profile, error: profileError } = await supabase
@@ -44,6 +63,7 @@ export const authenticateToken = async (req, res, next) => {
     };
 
     req.user = userWithProfile;
+    req.userSupabase = userSupabase; // Add user-scoped client to request
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
