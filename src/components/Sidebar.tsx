@@ -9,7 +9,7 @@ import {
   Puzzle, 
   Settings,
   X,
-  Mic
+  Zap
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -20,22 +20,22 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'AI Agents', href: '/agents', icon: Bot },
-  { name: 'Calls', href: '/calls', icon: Phone },
-  { name: 'Knowledge Base', href: '/knowledge-base', icon: BookOpen },
-  { name: 'MCPs', href: '/mcps', icon: Puzzle },
+  { name: 'AI Agents', href: '/dashboard/agents', icon: Bot },
+  { name: 'Calls', href: '/dashboard/calls', icon: Phone },
+  { name: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: BookOpen },
+  { name: 'MCPs', href: '/dashboard/mcps', icon: Puzzle },
 ];
 
 const settingsNavigation = [
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 export default function Sidebar({ open, setOpen }: SidebarProps) {
   const location = useLocation();
 
   const isActive = (href: string) => {
-    if (href === '/dashboard' && location.pathname === '/') return true;
-    return location.pathname.startsWith(href);
+    if (href === '/dashboard' && location.pathname === '/dashboard') return true;
+    return location.pathname.startsWith(href) && href !== '/dashboard';
   };
 
   return (
@@ -61,10 +61,12 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-16 items-center gap-3 px-6 border-b border-border">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
-              <Mic className="h-5 w-5" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-accent text-white">
+              <Zap className="h-5 w-5" />
             </div>
-            <span className="text-xl font-semibold text-fg-high">VRM</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-brand to-accent bg-clip-text text-transparent">
+              FASTSOL
+            </span>
             <button
               className="ml-auto lg:hidden"
               onClick={() => setOpen(false)}
@@ -85,7 +87,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                     className={clsx(
                       'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                       active
-                        ? 'bg-indigo-50 text-brand border border-brand/20'
+                        ? 'bg-gradient-to-r from-brand/10 to-accent/10 text-brand border border-brand/20'
                         : 'text-gray-700 hover:bg-gray-50 hover:text-fg-high'
                     )}
                     onClick={() => setOpen(false)}
@@ -109,7 +111,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                   className={clsx(
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     active
-                      ? 'bg-indigo-50 text-brand border border-brand/20'
+                      ? 'bg-gradient-to-r from-brand/10 to-accent/10 text-brand border border-brand/20'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-fg-high'
                   )}
                   onClick={() => setOpen(false)}

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './stores/useAuthStore';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import Agents from './pages/Agents';
@@ -38,6 +39,7 @@ function App() {
       <Router>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route
             path="/auth"
             element={
@@ -57,13 +59,12 @@ function App() {
 
           {/* Protected routes */}
           <Route
-            path="/*"
+            path="/dashboard/*"
             element={
               <ProtectedRoute>
                 <Layout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/agents" element={<Agents />} />
                     <Route path="/agents/wizard" element={<AgentWizard />} />
                     <Route path="/calls" element={<Calls />} />

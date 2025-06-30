@@ -17,7 +17,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const handleSignOut = async () => {
     await signOut();
     clearAuth();
-    navigate('/auth?mode=login');
+    navigate('/');
   };
 
   const handleMFASetup = () => {
@@ -49,7 +49,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         {/* User menu */}
         <HeadlessMenu as="div" className="relative">
           <HeadlessMenu.Button className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100">
-            <div className="h-8 w-8 rounded-full bg-brand flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand to-accent flex items-center justify-center">
               <User className="h-4 w-4 text-white" />
             </div>
             <div className="hidden sm:block text-left">
@@ -80,7 +80,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <HeadlessMenu.Item>
               {({ active }) => (
                 <button
-                  onClick={() => navigate('/settings')}
+                  onClick={() => navigate('/dashboard/settings')}
                   className={clsx(
                     'w-full text-left px-4 py-2 text-sm',
                     active ? 'bg-gray-50 text-fg-high' : 'text-gray-700'
