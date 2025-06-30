@@ -17,18 +17,33 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid or expired token' });
     }
 
-    // Get user profile
+    // Try to get user profile (but don't fail if it doesn't exist)
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
 
-    if (profileError) {
-      return res.status(500).json({ message: 'Failed to fetch user profile' });
-    }
+    // Create a user object with profile data if available, fallback to auth metadata
+    const userWithProfile = {
+      ...user,
+      profile: profile || {
+        id: user.id,
+        email: user.email,
+        full_name: user.user_metadata?.full_name || null,
+        avatar_url: user.user_metadata?.avatar_url || null,
+        organization: user.user_metadata?.organization || null,
+        role: 'user',
+        mfa_enabled: false,
+        last_login: null,
+        login_attempts: 0,
+        locked_until: null,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }
+    };
 
-    req.user = { ...user, profile };
+    req.user = userWithProfile;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

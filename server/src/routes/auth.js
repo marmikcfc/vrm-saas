@@ -112,12 +112,19 @@ router.post('/login', authRateLimiter, loginValidation, validateRequest, async (
   try {
     const { email, password } = req.body;
 
-    // Check rate limiting in user_profiles
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('login_attempts, locked_until')
-      .eq('email', email)
-      .single();
+    // Try to check rate limiting in user_profiles (but don't fail if table doesn't exist)
+    let profile = null;
+    try {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('login_attempts, locked_until')
+        .eq('email', email)
+        .single();
+      profile = data;
+    } catch (profileError) {
+      // Profile table doesn't exist or no profile - continue without rate limiting
+      console.log('No user profile found for rate limiting, continuing...');
+    }
 
     if (profile?.locked_until && new Date(profile.locked_until) > new Date()) {
       return res.status(429).json({
@@ -132,27 +139,44 @@ router.post('/login', authRateLimiter, loginValidation, validateRequest, async (
     });
 
     if (error) {
-      // Increment login attempts
-      await supabase.rpc('increment_login_attempts', { user_email: email });
+      // Try to increment login attempts if user_profiles table exists
+      try {
+        await supabase.rpc('increment_login_attempts', { user_email: email });
+      } catch (rpcError) {
+        // RPC doesn't exist, ignore and continue
+        console.log('increment_login_attempts RPC not found, skipping...');
+      }
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Reset login attempts on successful login
-    await supabase
-      .from('user_profiles')
-      .update({ 
-        login_attempts: 0, 
-        locked_until: null,
-        last_login: new Date().toISOString()
-      })
-      .eq('email', email);
+    // Try to reset login attempts on successful login if user_profiles table exists
+    try {
+      await supabase
+        .from('user_profiles')
+        .update({ 
+          login_attempts: 0, 
+          locked_until: null,
+          last_login: new Date().toISOString()
+        })
+        .eq('email', email);
+    } catch (updateError) {
+      // Profile table doesn't exist, ignore and continue
+      console.log('Could not update user profile, continuing...');
+    }
 
-    // Get user profile
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
+    // Try to get user profile, but use auth metadata as fallback
+    let userProfile = null;
+    try {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+      userProfile = profileData;
+    } catch (profileError) {
+      // No profile table or no profile record - use auth metadata
+      console.log('No user profile found, using auth metadata...');
+    }
 
     res.json({
       message: 'Login successful',
@@ -160,9 +184,13 @@ router.post('/login', authRateLimiter, loginValidation, validateRequest, async (
       user: {
         id: data.user.id,
         email: data.user.email,
-        full_name: userProfile?.full_name,
-        organization: userProfile?.organization,
-        role: userProfile?.role || 'user'
+        profile: {
+          full_name: userProfile?.full_name || data.user.user_metadata?.full_name || null,
+          avatar_url: userProfile?.avatar_url || data.user.user_metadata?.avatar_url || null,
+          organization: userProfile?.organization || data.user.user_metadata?.organization || null,
+          role: userProfile?.role || 'user',
+          mfa_enabled: userProfile?.mfa_enabled || false
+        }
       }
     });
   } catch (error) {
@@ -311,10 +339,13 @@ router.get('/me', authenticateToken, async (req, res, next) => {
     res.json({
       id: user.id,
       email: user.email,
-      full_name: user.profile?.full_name,
-      avatar_url: user.profile?.avatar_url,
-      organization: user.profile?.organization,
-      role: user.profile?.role || 'user'
+      profile: {
+        full_name: user.profile?.full_name,
+        avatar_url: user.profile?.avatar_url,
+        organization: user.profile?.organization,
+        role: user.profile?.role || 'user',
+        mfa_enabled: user.profile?.mfa_enabled || false
+      }
     });
   } catch (error) {
     next(error);

@@ -175,10 +175,20 @@ export const kbApi = {
   list: () => apiClient.get('/knowledge-bases'),
   get: (id: string) => apiClient.get(`/knowledge-bases/${id}`),
   create: (data: any) => apiClient.post('/knowledge-bases', data),
+  update: (id: string, data: any) => apiClient.put(`/knowledge-bases/${id}`, data),
+  delete: (id: string) => apiClient.delete(`/knowledge-bases/${id}`),
   uploadDocument: (id: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     return apiClient.upload(`/knowledge-bases/${id}/documents`, formData);
+  },
+  uploadFiles: (id: string, files: FileList) => {
+    const formData = new FormData();
+    Array.from(files).forEach(file => formData.append('files', file));
+    return apiClient.upload(`/knowledge-bases/${id}/upload`, formData);
+  },
+  addUrl: (id: string, url: string, name?: string) => {
+    return apiClient.post(`/knowledge-bases/${id}/sources/url`, { url, name });
   },
 };
 
