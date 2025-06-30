@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Tab } from '@headlessui/react';
-import { Plus, Server, FileText, ExternalLink, Settings, Play, Code, Book, ArrowLeft, Globe, CheckCircle, AlertTriangle, X, Save } from 'lucide-react';
+import { Plus, Server, FileText, ExternalLink, Settings, Play, Code, Book, ArrowLeft, Globe, CheckCircle, AlertTriangle, X, Save, Upload, Link as LinkIcon, Edit, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import CodeEditor from '../components/ui/CodeEditor';
+import TextEditor from '../components/ui/TextEditor';
+import { useMCPs, useMCP, useMCPTools, useCreateMCPServer, useAddMCPTemplate, useAddMCPPrompt, type MCPServer, type MCPTool, type MCPTemplate, type MCPPrompt } from '../hooks/useMCPs';
 
 const tabs = [
   { name: 'Server', icon: Server },
@@ -20,92 +23,35 @@ export default function MCPs() {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [showAddResource, setShowAddResource] = useState(false);
   const [showAddPrompt, setShowAddPrompt] = useState(false);
+  const [showConfigureModal, setShowConfigureModal] = useState(false);
+  const [showAddRemoteServer, setShowAddRemoteServer] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<MCPTemplate | null>(null);
+  const [editingPrompt, setEditingPrompt] = useState<MCPPrompt | null>(null);
 
-  const servers = [
-    {
-      id: 'crm-api',
-      name: 'CRM API',
-      description: 'Customer relationship management operations',
-      version: '1.2.0',
-      status: 'active',
-      lastUpdated: '2 days ago',
-      url: 'https://api.crm.example.com',
-      endpoints: 12,
-      uptime: '99.9%',
-      responseTime: '45ms',
-    },
-    {
-      id: 'payment-gateway',
-      name: 'Payment Gateway',
-      description: 'Process payments and manage subscriptions',
-      version: '2.1.0',
-      status: 'draft',
-      lastUpdated: '1 week ago',
-      url: 'https://api.payments.example.com',
-      endpoints: 8,
-      uptime: '98.5%',
-      responseTime: '120ms',
-    },
-    {
-      id: 'analytics-api',
-      name: 'Analytics API',
-      description: 'Track user behavior and generate insights',
-      version: '3.0.0',
-      status: 'active',
-      lastUpdated: '3 hours ago',
-      url: 'https://api.analytics.example.com',
-      endpoints: 15,
-      uptime: '99.8%',
-      responseTime: '32ms',
-    },
-  ];
+  // API hooks
+  const { data: mcpsData, isLoading, error, refetch } = useMCPs();
+  const { data: selectedServerData, isLoading: isServerLoading } = useMCP(selectedServer || '');
+  const { data: toolsData } = useMCPTools(selectedServer || '');
+  const createServerMutation = useCreateMCPServer();
+  const addTemplateMutation = useAddMCPTemplate();
+  const addPromptMutation = useAddMCPPrompt();
 
-  const tools = [
-    { id: 1, name: 'createCustomer', description: 'Create a new customer record', enabled: true },
-    { id: 2, name: 'getCustomer', description: 'Retrieve customer information', enabled: true },
-    { id: 3, name: 'updateCustomer', description: 'Update customer details', enabled: false },
-    { id: 4, name: 'deleteCustomer', description: 'Remove customer account', enabled: false },
-    { id: 5, name: 'listOrders', description: 'Get customer order history', enabled: true },
-  ];
+  const servers: MCPServer[] = Array.isArray(mcpsData?.data) ? mcpsData.data : [];
+  const tools: MCPTool[] = Array.isArray(toolsData?.data) ? toolsData.data : [];
+  const currentServer = selectedServerData?.data as MCPServer;
+  const templates: MCPTemplate[] = currentServer?.templates || [];
+  const prompts: MCPPrompt[] = currentServer?.prompts || [];
 
-  const templates = [
-    { id: 1, name: 'Customer Onboarding', type: 'prompt', description: 'Welcome new customers', linkedPrompt: 'Welcome Prompt' },
-    { id: 2, name: 'Order Summary Card', type: 'ui', description: 'Display order information', linkedPrompt: null },
-    { id: 3, name: 'Payment Form', type: 'ui', description: 'Collect payment details', linkedPrompt: 'Payment Confirmation' },
-  ];
-
-  const prompts = [
-    {
-      id: 1,
-      name: 'System Prompt',
-      content: 'You are a helpful assistant that can help users manage their CRM data...',
-      lastUpdated: '2 days ago',
-      linkedTemplates: ['Customer Onboarding'],
-    },
-    {
-      id: 2,
-      name: 'Tool Usage Prompt',
-      content: 'When using CRM tools, always confirm the action with the user first...',
-      lastUpdated: '1 week ago',
-      linkedTemplates: [],
-    },
-    {
-      id: 3,
-      name: 'Welcome Prompt',
-      content: 'Welcome to our CRM system! I can help you manage your customer data...',
-      lastUpdated: '3 days ago',
-      linkedTemplates: ['Customer Onboarding'],
-    },
-    {
-      id: 4,
-      name: 'Payment Confirmation',
-      content: 'Your payment has been processed successfully. Here are the details...',
-      lastUpdated: '1 day ago',
-      linkedTemplates: ['Payment Form'],
-    },
-  ];
-
-  const selectedServerData = servers.find(s => s.id === selectedServer);
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+    if (diffInHours < 48) return '1 day ago';
+    return `${Math.floor(diffInHours / 24)} days ago`;
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -129,7 +75,7 @@ export default function MCPs() {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Add New Template</h2>
             <button onClick={() => setShowAddResource(false)}>
@@ -137,74 +83,74 @@ export default function MCPs() {
             </button>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Template Name
-              </label>
-              <input
-                type="text"
-                value={resourceData.name}
-                onChange={(e) => setResourceData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
-                placeholder="e.g., Customer Profile Card"
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Template Name
+                </label>
+                <input
+                  type="text"
+                  value={resourceData.name}
+                  onChange={(e) => setResourceData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  placeholder="e.g., Customer Profile Card"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type
-              </label>
-              <select
-                value={resourceData.type}
-                onChange={(e) => setResourceData(prev => ({ ...prev, type: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
-              >
-                <option value="ui">UI Component</option>
-                <option value="prompt">Prompt Template</option>
-                <option value="workflow">Workflow</option>
-              </select>
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type
+                </label>
+                <select
+                  value={resourceData.type}
+                  onChange={(e) => setResourceData(prev => ({ ...prev, type: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                >
+                  <option value="ui">UI Component</option>
+                  <option value="prompt">Prompt Template</option>
+                  <option value="workflow">Workflow</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={resourceData.description}
-                onChange={(e) => setResourceData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
-                rows={3}
-                placeholder="Describe what this template does..."
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={resourceData.description}
+                  onChange={(e) => setResourceData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  rows={3}
+                  placeholder="Describe what this template does..."
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Linked Prompt (Optional)
-              </label>
-              <select
-                value={resourceData.linkedPrompt}
-                onChange={(e) => setResourceData(prev => ({ ...prev, linkedPrompt: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
-              >
-                <option value="">Select a prompt...</option>
-                {availablePrompts.map(prompt => (
-                  <option key={prompt} value={prompt}>{prompt}</option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Linked Prompt (Optional)
+                </label>
+                <select
+                  value={resourceData.linkedPrompt}
+                  onChange={(e) => setResourceData(prev => ({ ...prev, linkedPrompt: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                >
+                  <option value="">Select a prompt...</option>
+                  {availablePrompts.map(prompt => (
+                    <option key={prompt} value={prompt}>{prompt}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Template Content
               </label>
-              <textarea
+              <CodeEditor
                 value={resourceData.content}
-                onChange={(e) => setResourceData(prev => ({ ...prev, content: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none font-mono text-xs"
-                rows={8}
-                placeholder="Enter your template content (HTML, JSON, etc.)..."
+                onChange={(content) => setResourceData(prev => ({ ...prev, content }))}
+                height="400px"
               />
             </div>
           </div>
@@ -234,7 +180,7 @@ export default function MCPs() {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Add New Prompt</h2>
             <button onClick={() => setShowAddPrompt(false)}>
@@ -242,64 +188,66 @@ export default function MCPs() {
             </button>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Prompt Name
-              </label>
-              <input
-                type="text"
-                value={promptData.name}
-                onChange={(e) => setPromptData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
-                placeholder="e.g., Customer Service Greeting"
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Prompt Name
+                </label>
+                <input
+                  type="text"
+                  value={promptData.name}
+                  onChange={(e) => setPromptData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  placeholder="e.g., Customer Service Greeting"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={promptData.category}
-                onChange={(e) => setPromptData(prev => ({ ...prev, category: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
-              >
-                <option value="system">System Prompt</option>
-                <option value="user">User Interaction</option>
-                <option value="tool">Tool Usage</option>
-                <option value="error">Error Handling</option>
-              </select>
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  value={promptData.category}
+                  onChange={(e) => setPromptData(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                >
+                  <option value="system">System Prompt</option>
+                  <option value="user">User Interaction</option>
+                  <option value="tool">Tool Usage</option>
+                  <option value="error">Error Handling</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Linked Templates (Optional)
-              </label>
-              <div className="space-y-2">
-                {availableTemplates.map(template => (
-                  <label key={template} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={promptData.linkedTemplates.includes(template)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setPromptData(prev => ({
-                            ...prev,
-                            linkedTemplates: [...prev.linkedTemplates, template]
-                          }));
-                        } else {
-                          setPromptData(prev => ({
-                            ...prev,
-                            linkedTemplates: prev.linkedTemplates.filter(t => t !== template)
-                          }));
-                        }
-                      }}
-                      className="text-brand focus:ring-brand"
-                    />
-                    <span className="text-sm">{template}</span>
-                  </label>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Linked Templates (Optional)
+                </label>
+                <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded p-2">
+                  {availableTemplates.map(template => (
+                    <label key={template} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={promptData.linkedTemplates.includes(template)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPromptData(prev => ({
+                              ...prev,
+                              linkedTemplates: [...prev.linkedTemplates, template]
+                            }));
+                          } else {
+                            setPromptData(prev => ({
+                              ...prev,
+                              linkedTemplates: prev.linkedTemplates.filter(t => t !== template)
+                            }));
+                          }
+                        }}
+                        className="text-brand focus:ring-brand"
+                      />
+                      <span className="text-sm">{template}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -307,12 +255,11 @@ export default function MCPs() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Prompt Content
               </label>
-              <textarea
+              <TextEditor
                 value={promptData.content}
-                onChange={(e) => setPromptData(prev => ({ ...prev, content: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
-                rows={8}
-                placeholder="Enter your prompt content..."
+                onChange={(content) => setPromptData(prev => ({ ...prev, content }))}
+                height="400px"
+                placeholder="Enter your prompt content here..."
               />
             </div>
           </div>
@@ -323,6 +270,263 @@ export default function MCPs() {
             </Button>
             <Button icon={Save}>
               Save Prompt
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ConfigureModal = () => {
+    const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
+    const [uploadData, setUploadData] = useState({
+      files: null as FileList | null,
+      description: '',
+    });
+    const [urlData, setUrlData] = useState({
+      url: '',
+      name: '',
+      description: '',
+    });
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">Configure MCP Server</h2>
+            <button onClick={() => setShowConfigureModal(false)}>
+              <X className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex border border-gray-200 rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab('upload')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'upload'
+                    ? 'bg-brand text-white'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <Upload className="h-4 w-4" />
+                Upload Files
+              </button>
+              <button
+                onClick={() => setActiveTab('url')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'url'
+                    ? 'bg-brand text-white'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <LinkIcon className="h-4 w-4" />
+                Add URL
+              </button>
+            </div>
+          </div>
+
+          {activeTab === 'upload' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload Files
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 mb-2">
+                    Drop files here or click to browse
+                  </p>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".json,.yaml,.yml,.txt,.md"
+                    onChange={(e) => setUploadData(prev => ({ ...prev, files: e.target.files }))}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
+                    Choose Files
+                  </Button>
+                </div>
+                {uploadData.files && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    {uploadData.files.length} file(s) selected
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={uploadData.description}
+                  onChange={(e) => setUploadData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  rows={3}
+                  placeholder="Describe these configuration files..."
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Configuration URL
+                </label>
+                <input
+                  type="url"
+                  value={urlData.url}
+                  onChange={(e) => setUrlData(prev => ({ ...prev, url: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  placeholder="https://example.com/mcp-config.json"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={urlData.name}
+                  onChange={(e) => setUrlData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  placeholder="Configuration name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={urlData.description}
+                  onChange={(e) => setUrlData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  rows={3}
+                  placeholder="Describe this configuration..."
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="outline" onClick={() => setShowConfigureModal(false)}>
+              Cancel
+            </Button>
+            <Button icon={Save}>
+              Save Configuration
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const AddRemoteServerModal = () => {
+    const [serverData, setServerData] = useState({
+      name: '',
+      url: '',
+      description: '',
+      authType: 'none',
+      apiKey: '',
+    });
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">Add Remote MCP Server</h2>
+            <button onClick={() => setShowAddRemoteServer(false)}>
+              <X className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Server Name
+              </label>
+              <input
+                type="text"
+                value={serverData.name}
+                onChange={(e) => setServerData(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                placeholder="e.g., Production API Server"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Server URL
+              </label>
+              <input
+                type="url"
+                value={serverData.url}
+                onChange={(e) => setServerData(prev => ({ ...prev, url: e.target.value }))}
+                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                placeholder="https://api.example.com/mcp"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                value={serverData.description}
+                onChange={(e) => setServerData(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                rows={3}
+                placeholder="Describe what this server provides..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Authentication
+              </label>
+              <select
+                value={serverData.authType}
+                onChange={(e) => setServerData(prev => ({ ...prev, authType: e.target.value }))}
+                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+              >
+                <option value="none">No Authentication</option>
+                <option value="apikey">API Key</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="basic">Basic Auth</option>
+              </select>
+            </div>
+
+            {serverData.authType !== 'none' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {serverData.authType === 'apikey' ? 'API Key' : 
+                   serverData.authType === 'bearer' ? 'Bearer Token' : 'Password'}
+                </label>
+                <input
+                  type="password"
+                  value={serverData.apiKey}
+                  onChange={(e) => setServerData(prev => ({ ...prev, apiKey: e.target.value }))}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:outline-none"
+                  placeholder="Enter authentication credentials"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="outline" onClick={() => setShowAddRemoteServer(false)}>
+              Cancel
+            </Button>
+            <Button icon={Save}>
+              Add Server
             </Button>
           </div>
         </div>
@@ -343,14 +547,14 @@ export default function MCPs() {
             Back to MCPs
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold text-fg-high">{selectedServerData.name}</h1>
-            <p className="text-gray-500">{selectedServerData.description}</p>
+            <h1 className="text-2xl font-semibold text-fg-high">{currentServer?.name}</h1>
+            <p className="text-gray-500">{currentServer?.description}</p>
           </div>
           <div className="ml-auto flex gap-2">
             <Button size="sm" variant="outline" icon={ExternalLink}>
               View Docs
             </Button>
-            <Button size="sm" variant="outline" icon={Settings}>
+            <Button size="sm" variant="outline" icon={Settings} onClick={() => setShowConfigureModal(true)}>
               Configure
             </Button>
           </div>
@@ -361,27 +565,29 @@ export default function MCPs() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="text-gray-500">Version:</span>
-              <span className="ml-2 font-medium">v{selectedServerData.version}</span>
+              <span className="ml-2 font-medium">v{currentServer?.version}</span>
             </div>
             <div>
               <span className="text-gray-500">Status:</span>
-              <Badge variant={getStatusColor(selectedServerData.status)} size="sm" className="ml-2">
-                {selectedServerData.status}
-              </Badge>
+              <div className="ml-2">
+                <Badge variant={getStatusColor(currentServer?.status || 'default')} size="sm">
+                  {currentServer?.status}
+                </Badge>
+              </div>
             </div>
             <div>
               <span className="text-gray-500">Endpoints:</span>
-              <span className="ml-2 font-medium">{selectedServerData.endpoints}</span>
+              <span className="ml-2 font-medium">{currentServer?.endpoints}</span>
             </div>
             <div>
               <span className="text-gray-500">Last Updated:</span>
-              <span className="ml-2">{selectedServerData.lastUpdated}</span>
+              <span className="ml-2">{currentServer?.lastUpdated ? formatDate(currentServer.lastUpdated) : 'N/A'}</span>
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border">
             <div className="text-sm">
               <span className="text-gray-500">Base URL:</span>
-              <span className="ml-2 font-mono text-xs">{selectedServerData.url}</span>
+              <span className="ml-2 font-mono text-xs">{currentServer?.url}</span>
             </div>
           </div>
         </Card>
@@ -416,15 +622,15 @@ export default function MCPs() {
                     <h3 className="text-lg font-semibold mb-4">Server Health</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <div className="text-2xl font-semibold text-green-600">{selectedServerData.uptime}</div>
+                        <div className="text-2xl font-semibold text-green-600">{currentServer?.uptime || 'N/A'}</div>
                         <div className="text-sm text-gray-600">Uptime</div>
                       </div>
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <div className="text-2xl font-semibold text-blue-600">{selectedServerData.responseTime}</div>
+                        <div className="text-2xl font-semibold text-blue-600">{currentServer?.responseTime || 'N/A'}</div>
                         <div className="text-sm text-gray-600">Avg Response</div>
                       </div>
                       <div className="text-center p-4 bg-gray-50 rounded-lg">
-                        <div className="text-2xl font-semibold text-gray-600">{selectedServerData.endpoints}</div>
+                        <div className="text-2xl font-semibold text-gray-600">{currentServer?.endpoints || 0}</div>
                         <div className="text-sm text-gray-600">Endpoints</div>
                       </div>
                     </div>
@@ -488,14 +694,9 @@ export default function MCPs() {
                             <div className="text-sm text-gray-600">{tool.description}</div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" icon={Play}>
-                            Test
-                          </Button>
-                          <Button size="sm" variant="outline" icon={Settings}>
-                            Configure
-                          </Button>
-                        </div>
+                        <Badge variant={tool.enabled ? 'success' : 'default'} size="sm">
+                          {tool.enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
                       </div>
                     ))}
                   </div>
@@ -541,7 +742,7 @@ export default function MCPs() {
                         <Badge variant="default" size="sm">
                           {template.type}
                         </Badge>
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" icon={Edit} onClick={() => setEditingTemplate(template)}>
                           Edit
                         </Button>
                       </div>
@@ -572,7 +773,7 @@ export default function MCPs() {
                       <div key={prompt.id} className="p-4 border border-gray-200 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-medium">{prompt.name}</h4>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" icon={Edit} onClick={() => setEditingPrompt(prompt)}>
                             Edit
                           </Button>
                         </div>
@@ -606,6 +807,58 @@ export default function MCPs() {
         {/* Modals */}
         {showAddResource && <AddResourceModal />}
         {showAddPrompt && <AddPromptModal />}
+        {showConfigureModal && <ConfigureModal />}
+        {editingTemplate && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Edit Template: {editingTemplate.name}</h2>
+                <button onClick={() => setEditingTemplate(null)}>
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+              <CodeEditor
+                value={editingTemplate.content || ''}
+                onChange={() => {}}
+                height="500px"
+              />
+              <div className="flex justify-end gap-3 mt-6">
+                <Button variant="outline" onClick={() => setEditingTemplate(null)}>
+                  Cancel
+                </Button>
+                <Button icon={Save}>
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        {editingPrompt && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Edit Prompt: {editingPrompt.name}</h2>
+                <button onClick={() => setEditingPrompt(null)}>
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+              <TextEditor
+                value={editingPrompt.content || ''}
+                onChange={() => {}}
+                height="400px"
+                placeholder="Enter your prompt content here..."
+              />
+              <div className="flex justify-end gap-3 mt-6">
+                <Button variant="outline" onClick={() => setEditingPrompt(null)}>
+                  Cancel
+                </Button>
+                <Button icon={Save}>
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -617,118 +870,163 @@ export default function MCPs() {
           <h1 className="text-2xl font-semibold text-fg-high">MCPs</h1>
           <p className="text-gray-500">Model-Context-Protocol specifications and tools</p>
         </div>
-        <Button 
-          icon={Plus}
-          onClick={() => navigate('/upload-specification')}
-        >
-          Upload Specification
-        </Button>
-      </div>
-
-      {/* Servers Table */}
-      <Card padding={false}>
-        <div className="overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Server
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Version
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Endpoints
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Uptime
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Updated
-                </th>
-                <th className="relative px-6 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {servers.map((server) => (
-                <tr 
-                  key={server.id} 
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => setSelectedServer(server.id)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10">
-                        <Server className="h-5 w-5 text-brand" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-fg-high">{server.name}</div>
-                        <div className="text-sm text-gray-500">{server.description}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-700">v{server.version}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge variant={getStatusColor(server.status)}>
-                      {server.status}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-700">{server.endpoints}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="text-sm text-gray-700">{server.uptime}</div>
-                      {parseFloat(server.uptime) > 99 ? (
-                        <CheckCircle className="h-4 w-4 text-green-500 ml-2" />
-                      ) : (
-                        <AlertTriangle className="h-4 w-4 text-yellow-500 ml-2" />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {server.lastUpdated}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedServer(server.id);
-                      }}
-                    >
-                      View Details
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* Empty State */}
-      {servers.length === 0 && (
-        <Card className="text-center py-12">
-          <Server className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-fg-high mb-2">No API servers yet</h3>
-          <p className="text-gray-500 mb-6">Upload an OpenAPI specification to get started</p>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            icon={Globe}
+            onClick={() => setShowAddRemoteServer(true)}
+          >
+            Add Remote Server
+          </Button>
           <Button 
             icon={Plus}
             onClick={() => navigate('/upload-specification')}
           >
-            Upload Your First Specification
+            Upload Specification
+          </Button>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <Card className="text-center py-12">
+          <Loader2 className="h-8 w-8 text-brand mx-auto mb-4 animate-spin" />
+          <p className="text-gray-500">Loading MCP servers...</p>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <Card className="text-center py-12">
+          <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-fg-high mb-2">Failed to load MCP servers</h3>
+          <p className="text-gray-500 mb-4">
+            {error.message || 'An error occurred while fetching servers'}
+          </p>
+          <Button variant="outline" onClick={() => refetch()}>
+            Try Again
           </Button>
         </Card>
       )}
-    </div>
-  );
+
+      {/* Servers Table */}
+      {!isLoading && !error && (
+        <Card padding={false}>
+          <div className="overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Server
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Version
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Endpoints
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Uptime
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Updated
+                  </th>
+                  <th className="relative px-6 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {servers.map((server) => (
+                  <tr 
+                    key={server.id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => setSelectedServer(server.id)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10">
+                          <Server className="h-5 w-5 text-brand" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-fg-high">{server.name}</div>
+                          <div className="text-sm text-gray-500">{server.description}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700">v{server.version}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge variant={getStatusColor(server.status)}>
+                        {server.status}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700">{server.endpoints || 0}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm text-gray-700">{server.uptime || 'N/A'}</div>
+                        {server.uptime && parseFloat(server.uptime.replace('%', '')) > 99 ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 ml-2" />
+                        ) : server.uptime ? (
+                          <AlertTriangle className="h-4 w-4 text-yellow-500 ml-2" />
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {server.lastUpdated ? formatDate(server.lastUpdated) : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedServer(server.id);
+                        }}
+                      >
+                        View Details
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !error && servers.length === 0 && (
+        <Card className="text-center py-12">
+          <Server className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-fg-high mb-2">No MCP servers yet</h3>
+          <p className="text-gray-500 mb-6">Upload an MCP specification or add a remote server to get started</p>
+          <div className="flex gap-3 justify-center">
+            <Button 
+              variant="outline"
+              icon={Globe}
+              onClick={() => setShowAddRemoteServer(true)}
+            >
+              Add Remote Server
+            </Button>
+            <Button 
+              icon={Plus}
+              onClick={() => navigate('/upload-specification')}
+            >
+              Upload Specification
+            </Button>
+          </div>
+        </Card>
+      )}
+
+    {/* Remote Server Modal */}
+    {showAddRemoteServer && <AddRemoteServerModal />}
+  </div>
+);
 }

@@ -39,36 +39,9 @@ const upload = multer({
  */
 router.get('/', authenticateToken, async (req, res, next) => {
   try {
-    // For now, return mock data since we don't have an mcps table
-    // In production, you would create an mcps table
-    const mockMCPs = [
-      {
-        id: uuidv4(),
-        name: 'CRM API',
-        description: 'Customer relationship management operations',
-        version: '1.2.0',
-        status: 'active',
-        lastUpdated: new Date(Date.now() - 172800000).toISOString(),
-        url: 'https://api.crm.example.com',
-        endpoints: 12,
-        uptime: '99.9%',
-        responseTime: '45ms'
-      },
-      {
-        id: uuidv4(),
-        name: 'Payment Gateway',
-        description: 'Process payments and manage subscriptions',
-        version: '2.1.0',
-        status: 'draft',
-        lastUpdated: new Date(Date.now() - 604800000).toISOString(),
-        url: 'https://api.payments.example.com',
-        endpoints: 8,
-        uptime: '98.5%',
-        responseTime: '120ms'
-      }
-    ];
-
-    res.json(mockMCPs);
+    // Return empty array until we have a proper mcps table
+    // TODO: Create mcps table and query from database
+    res.json([]);
   } catch (error) {
     next(error);
   }
@@ -97,28 +70,9 @@ router.get('/', authenticateToken, async (req, res, next) => {
  */
 router.get('/:id', authenticateToken, uuidValidation, validateRequest, async (req, res, next) => {
   try {
-    // Mock response for now
-    const mockMCP = {
-      id: req.params.id,
-      name: 'CRM API',
-      description: 'Customer relationship management operations',
-      version: '1.2.0',
-      status: 'active',
-      lastUpdated: new Date().toISOString(),
-      url: 'https://api.crm.example.com',
-      endpoints: 12,
-      uptime: '99.9%',
-      responseTime: '45ms',
-      specification: {
-        openapi: '3.0.0',
-        info: {
-          title: 'CRM API',
-          version: '1.2.0'
-        }
-      }
-    };
-
-    res.json(mockMCP);
+    // TODO: Query from mcps table when it exists
+    // For now, return 404 since we don't have any real MCPs
+    res.status(404).json({ message: 'MCP server not found' });
   } catch (error) {
     next(error);
   }
@@ -270,16 +224,9 @@ router.post('/spec', authenticateToken, uploadRateLimiter, upload.single('specFi
  */
 router.get('/:id/tools', authenticateToken, uuidValidation, validateRequest, async (req, res, next) => {
   try {
-    // Mock tools data
-    const mockTools = [
-      { id: 'createCustomer', name: 'createCustomer', description: 'Create a new customer record', enabled: true },
-      { id: 'getCustomer', name: 'getCustomer', description: 'Retrieve customer information', enabled: true },
-      { id: 'updateCustomer', name: 'updateCustomer', description: 'Update customer details', enabled: false },
-      { id: 'deleteCustomer', name: 'deleteCustomer', description: 'Remove customer account', enabled: false },
-      { id: 'listOrders', name: 'listOrders', description: 'Get customer order history', enabled: true }
-    ];
-
-    res.json(mockTools);
+    // TODO: Query tools from database when mcps table exists
+    // For now, return empty array since we don't have any real MCPs
+    res.json([]);
   } catch (error) {
     next(error);
   }
