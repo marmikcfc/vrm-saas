@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Zap, Users, Clock, Shield, Star, CheckCircle } from 'lucide-react';
+import { ArrowRight, Zap, Users, Clock, Shield, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 
@@ -29,27 +29,6 @@ export default function LandingPage() {
     }
   ];
 
-  const testimonials = [
-    {
-      name: 'Sarah Chen',
-      role: 'VP of Growth, TechCorp',
-      content: 'FASTSOL reduced our user onboarding time by 85%. Our activation rates have never been higher.',
-      rating: 5
-    },
-    {
-      name: 'Marcus Rodriguez',
-      role: 'Product Manager, StartupXYZ',
-      content: 'The AI-powered guidance is incredible. Users actually enjoy our onboarding process now.',
-      rating: 5
-    },
-    {
-      name: 'Emily Watson',
-      role: 'CTO, ScaleUp Inc',
-      content: 'Implementation was seamless. We saw results within the first week of deployment.',
-      rating: 5
-    }
-  ];
-
   const stats = [
     { value: '85%', label: 'Faster Onboarding' },
     { value: '10M+', label: 'Users Onboarded' },
@@ -74,7 +53,6 @@ export default function LandingPage() {
             
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-600 hover:text-brand transition-colors">Features</a>
-              <a href="#testimonials" className="text-gray-600 hover:text-brand transition-colors">Testimonials</a>
               <a href="#pricing" className="text-gray-600 hover:text-brand transition-colors">Pricing</a>
               <a href="#contact" className="text-gray-600 hover:text-brand transition-colors">Contact</a>
             </div>
@@ -172,37 +150,6 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
                 <p className="text-gray-600 leading-relaxed">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Loved by Teams Worldwide
-            </h2>
-            <p className="text-xl text-gray-600">
-              See what our customers are saying about their FASTSOL experience.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-1 mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-gray-700 mb-6 leading-relaxed">"{testimonial.content}"</p>
-                <div>
-                  <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                  <div className="text-gray-600 text-sm">{testimonial.role}</div>
-                </div>
               </div>
             ))}
           </div>
